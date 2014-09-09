@@ -42,7 +42,17 @@ import geoip2.database
 
 __version__ = "0.1"
 
-DATA_DIR = "/Users/mhandsche/scripts/mh/gkfm/cache"
+
+
+DATA_DIR = ''.join([os.environ['HOME'], "/traceroute_cache"])
+KML_FILE = ''.join([os.environ['HOME'], "/output.kml"])
+
+GEOIP_FILE = "/opt/geoip2/GeoLite2-City.mmdb"
+try:
+	os.stat(DATA_DIR)
+except:
+	os.mkdir(DATA_DIR)
+
 APIKey				= ""
 MeasurementID			= 0
 ASPathRadiusFromTarget		= 20
@@ -154,7 +164,7 @@ ProbesWithErrors	= []
 IncompleteProbes	= []
 ValidProbesCount	= 0	# only results with one or more IP addresses different from both the source and the target in the middle of the path are considered valid
 kml					= simplekml.Kml()
-reader				= geoip2.database.Reader('/Users/mhandsche/scripts/ripe/resources/GeoLite2-City.mmdb')
+reader				= geoip2.database.Reader(GEOIP_FILE)
 
 
 for result in data:
@@ -417,6 +427,6 @@ PrintLine("")
 
 
 
-kml.save("trace.kml")
+kml.save(KML_FILE)
 
 
