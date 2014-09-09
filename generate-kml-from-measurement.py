@@ -429,4 +429,4 @@ PrintLine("")
 
 kml.save(KML_FILE)
 
-
+PrintLine(''.join(["KML File writen to: ", KML_FILE]))
