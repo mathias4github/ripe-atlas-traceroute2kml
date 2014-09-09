@@ -39,15 +39,19 @@ import urllib
 import ipdetailscache
 import simplekml
 import geoip2.database
+import config
 
 __version__ = "0.1"
 
+DATA_DIR = config.DATA_DIR
+KML_FILE = config.KML_FILE
+GEOIP_FILE = config.GEOIP_FILE
 
+#DATA_DIR = ''.join([os.environ['HOME'], "/traceroute_cache"])
+#KML_FILE = ''.join([os.environ['HOME'], "/output.kml"])
+#GEOIP_FILE = ''.join([os.path.dirname(os.path.abspath(__file__)),"/GeoLite2-City.mmdb"])
 
-DATA_DIR = ''.join([os.environ['HOME'], "/traceroute_cache"])
-KML_FILE = ''.join([os.environ['HOME'], "/output.kml"])
-
-GEOIP_FILE = "/opt/geoip2/GeoLite2-City.mmdb"
+#GEOIP_FILE = "/opt/geoip2/GeoLite2-City.mmdb"
 try:
 	os.stat(DATA_DIR)
 except:
