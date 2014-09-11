@@ -41,8 +41,10 @@ import simplekml
 import geoip2.database
 import config
 import time
-import datetime
+from datetime import date
 from html import HTML
+import pprint
+import math
 
 __version__ = "0.1"
 
@@ -122,11 +124,11 @@ def getProbeInfo():
 	
 	hashr = {} 
 	for e in j:
-		up= e[0]
-		lat= e[1]
-		lon= e[2]
-		a= e[3]
 		d={}
+		up= e[0]
+		d["lat"]= e[1]
+		d["lon"]= e[2]
+		a= e[3]
 		for i in range(0,len(a),2):
 			d[a[i]]= a[i+1]
 		if "IPv6 Prefix" not in d.keys():
@@ -154,7 +156,62 @@ def getProbeInfo():
 
 	return(hashr)
 
+def distance_on_unit_sphere(lat1, long1, lat2, long2):
 
+    if (lat1 == lat2 and long1 == long2):
+    	return(0)
+
+    PrintLine("Latitude: %.4f Longitude: %.4f \nLatitude: %.4f Longitude: %.4f" % (lat1, long1, lat2, long2))
+    # Convert latitude and longitude to 
+    # spherical coordinates in radians.
+    degrees_to_radians = math.pi/180.0
+        
+    # phi = 90 - latitude
+    phi1 = (90.0 - lat1)*degrees_to_radians
+    phi2 = (90.0 - lat2)*degrees_to_radians
+        
+    # theta = longitude
+    theta1 = long1*degrees_to_radians
+    theta2 = long2*degrees_to_radians
+        
+    # Compute spherical distance from spherical coordinates.
+        
+    # For two locations in spherical coordinates 
+    # (1, theta, phi) and (1, theta, phi)
+    # cosine( arc length ) = 
+    #    sin phi sin phi' cos(theta-theta') + cos phi cos phi'
+    # distance = rho * arc length
+    
+    cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) + 
+           math.cos(phi1)*math.cos(phi2))
+    arc = math.acos( cos )
+
+    # Remember to multiply arc by the radius of the earth 
+    # in your favorite set of units to get length.
+    return (arc * 6373)
+
+def median(mylist):
+    if (len(mylist) == 0):
+        return(0)
+    sorts = sorted(mylist)
+    length = len(sorts)
+    if not length % 2:
+        return (sorts[length / 2] + sorts[length / 2 - 1]) / 2.0
+    return sorts[length / 2]
+
+def color_selctor(latency,distance):
+	expected_latency = distance / 200
+
+	if latency <= expected_latency * 1:  # wahrscheinlich fehler da zu schnell
+		colorhex = "FF0000"
+	elif latency <= expected_latency * 1.5:
+		colorhex = "00FF00"
+	elif latency <= expected_latency * 2:
+		colorhex = "FFFF00"
+	else:
+		colorhex = "FF0000"
+
+	return(simplekml.Color.hex(colorhex))
 # ------------------------------------------------------------------
 
 try:
@@ -249,6 +306,7 @@ reader				= geoip2.database.Reader(GEOIP_FILE)
 probe_details = getProbeInfo()
 
 doc = kml.newdocument(name = "UDM: " + str(MeasurementID))
+kml.document = doc
 
 h = HTML('html')
 t = h.table(border='1')
@@ -263,10 +321,10 @@ r.td('Destination Name')
 r.td(str(data[0]["dst_name"]))
 r = t.tr
 r.td('Starttime:')
-r.td(datetime.fromtimestamp(int(data[0][timestamp])).strftime('%Y-%m-%d %H:%M:%S'))
+r.td(date.fromtimestamp(int(data[0]["timestamp"])).strftime('%Y-%m-%d %H:%M:%S'))
 r = t.tr
 r.td('Endtime')
-r.td(datetime.fromtimestamp(int(data[0][endtime])).strftime('%Y-%m-%d %H:%M:%S'))
+r.td(date.fromtimestamp(int(data[0]["endtime"])).strftime('%Y-%m-%d %H:%M:%S'))
 r = t.tr
 r.td('IP Version')
 r.td(str(data[0]["af"]))
@@ -280,13 +338,14 @@ r = t.tr
 r.td('Size of Packets')
 r.td(str(data[0]["size"]))
 
+PrintLine(type(str(h)))
+
+PrintLine(str(h))
 
 
+doc.description = str(h)
 
-doc.description(h)
-
-
-
+# Probe Result
 
 for result in data:
 
@@ -299,22 +358,23 @@ for result in data:
 
 	ProbeID = str(result["prb_id"])
 
-	if not ProbeID in probe_details:
+	if not int(ProbeID) in probe_details:
+		PrintLine("ProbeID to skip: " + ProbeID)
 		continue
 
 	ASPath = []
 	TracerouteCompleted = False
 	Valid = False
 
-	response = reader.city(IPAddress)
+	geo = reader.city(IPAddress)
 
 	#l = []
 	#l.append(IPAddress)
-	#l.append(response.location.latitude)
-	#l.append(response.location.longitude)
+	#l.append(geo.location.latitude)
+	#l.append(geo.location.longitude)
 	#
 
-	#m = IPAddress + response.location.latitude + response.location.longitude
+	#m = IPAddress + geo.location.latitude + geo.location.longitude
 
 	#PrintLine(m)
 
@@ -323,11 +383,12 @@ for result in data:
 	#PrintLine(IPAddressDetails)
 
 	fol = doc.newfolder(name=ProbeID)
-
+	#fol.description()
 
 	pnt = fol.newpoint(name=ProbeID, 
 			 description=''.join(["IP Address: ", IPAddress ,"\nPrefix: ",IPAddressDetails["Prefix"], "\nASN: ", IPAddressDetails["ASN"], "\nHostname: ", IPAddressDetails["HostName"], "\nHolder: ",IPAddressDetails["Holder"]]), 
-			 coords=[(response.location.longitude,response.location.latitude)]
+			 #coords=[(geo.location.longitude,geo.location.latitude)]
+			 coords=[(probe_details[int(ProbeID)]["lon"],probe_details[int(ProbeID)]["lat"])]
 			 )
 
 	pnt.style.iconstyle.icon.href = 'http://maps.google.com/mapfiles/kml/shapes/sunny.png'
@@ -337,6 +398,7 @@ for result in data:
 
 	Cols = []
 
+	last_rtt = 0
 	last_longitude = 0
 	last_latitude = 0
 	last_IPAddress = ""
@@ -348,18 +410,35 @@ for result in data:
 	Cols.append( IPAddressDetails["Holder"] )
 	Cols.append( IPAddressDetails["Prefix"] )
 	Cols.append( IPAddressDetails["HostName"] )
+	Cols.append( 0 )
+	Cols.append( 255 )
+	Cols.append( 0 )
 	Rows.append( Cols )
+
+	# Hops from each probe 
 
 	for hop in result["result"]:
 		if hop.get("error","") == "":
 			LastIPAddress = ""
+			listrtt = []
+
+			for rttcounter in hop["result"]:
+				if rttcounter.get("rtt","") != "":
+					listrtt.append(float(rttcounter["rtt"]))
+
 			for response in hop["result"]:
 				if response.get("from","") != "":
 					IPAddress = response["from"]
 
+					PrintLine("Respone ----------------- ")
+					pp = pprint.PrettyPrinter(indent=4)
+
+					pp.pprint(response)
+					PrintLine("Respone ----------------- ")
 					Valid = Valid or ( ( IPAddress != result["from"] ) and ( IPAddress != result["dst_addr"] ) )
 
 					if IPAddress != LastIPAddress:
+						
 						IPAddressDetails = IPCache.GetIPInformation( IPAddress )
 
 						if IPAddressDetails["ASN"].isdigit():
@@ -382,14 +461,17 @@ for result in data:
 						Cols.append( IPAddressDetails["Holder"] )
 						Cols.append( IPAddressDetails["Prefix"] )
 						Cols.append( IPAddressDetails["HostName"] )
-						Rows.append( Cols )
+						Cols.append( "%.2f" % median(listrtt))
+						Cols.append( response["ttl"])
+						#Rows.append( Cols )
 
 						LastIPAddress = IPAddress
 						
 						geo_available = True
+						
 
 						try:
-							response = reader.city(IPAddress)
+							geo = reader.city(IPAddress)
 						except:
 							geo_available = False
 
@@ -399,27 +481,40 @@ for result in data:
 							continue
 
 						else:
-							PrintLine("IP: " + IPAddress + " Long: " + str(response.location.longitude) + " Lat: " + str(response.location.latitude) )
+							PrintLine("IP: " + IPAddress + " Long: " + str(geo.location.longitude) + " Lat: " + str(geo.location.latitude) )
 					
 						if(last_latitude == 0 and last_longitude == 0):
-							last_latitude = response.location.latitude
-							last_longitude = response.location.longitude
+							last_latitude = geo.location.latitude
+							last_longitude = geo.location.longitude
+							last_rtt = median(listrtt)
+							Cols.append( 0 )
+
 							last_IPAddress = IPAddress
 						else:
-							fol.newlinestring(name=''.join(["Path: ", last_IPAddress, "-", IPAddress]),
-											   coords=[(response.location.longitude,response.location.latitude), (last_longitude,last_latitude)],
+							distance = "%d" % distance_on_unit_sphere(last_latitude, last_longitude, geo.location.latitude, geo.location.longitude)
+							line = fol.newlinestring(name=''.join(["Path: ", last_IPAddress, "-", IPAddress]),
+											   coords=[(geo.location.longitude,geo.location.latitude), (last_longitude,last_latitude)],
 											   altitudemode = simplekml.GxAltitudeMode.clampToSeaFloor,
 											   extrude = 1,
 											   tessellate = 1,
 											   visibility = 1
 											   )
-							
-							last_latitude = response.location.latitude
-							last_longitude = response.location.longitude
+
+							rtt = float(median(listrtt)) - float(last_rtt)
+
+							line.description = "Distance: %s km \n" % (distance) + "RTT: " + str(rtt) +" ms"
+							line.style.linestyle.color = color_selctor(rtt,int(distance))
+
+							last_rtt = median(listrtt)
+							last_latitude = geo.location.latitude
+							last_longitude = geo.location.longitude
+
+							Cols.append( distance )
+						Rows.append( Cols )
 
 						fol.newpoint(name=''.join([str(result["prb_id"]),"_",str(hop["hop"])]), 
 									 description=''.join(["IP Address: ", IPAddress ,"\nPrefix: ",IPAddressDetails["Prefix"], "\nASN: ", IPAddressDetails["ASN"], "\nHostname: ", IPAddressDetails["HostName"], "\nHolder: ",IPAddressDetails["Holder"]]), 
-									 coords=[(response.location.longitude,response.location.latitude)]
+									 coords=[(geo.location.longitude,geo.location.latitude)]
 									 )
 						
 		else:
@@ -446,14 +541,26 @@ for result in data:
 sys.stdout.write("\r")
 PrintLine("")
 
+
+
+
 # ------------------------------------------------------------------
 
 ColsMaxLen = []
 for Col in zip(*Rows):
 	ColsMaxLen.append( max( len( str(Val) ) for Val in Col ) )
 
+pp = pprint.PrettyPrinter(indent=4)
+
+pp.pprint(ColsMaxLen)
+
 LastProbeID = 0
 LastASN = ""
+kl = {}
+
+pp = pprint.PrettyPrinter(indent=4)
+
+pp.pprint(Rows)
 
 for R in Rows:
 	if R[0] != LastProbeID:
@@ -474,32 +581,59 @@ for R in Rows:
 		LastProbeID = R[0]
 
 		LastASN = ""
-
+		kl[LastProbeID] = ""
 		PrintLine( "Probe %s" % LastProbeID )
+		kl[LastProbeID] += "Probe %s" % LastProbeID + "\n"
 		PrintLine( "" )
+		kl[LastProbeID] += "\n"
 
 	if R[3] != "unknown":
 		if R[3] != LastASN:
 			if LastASN != "":
 				PrintLine("")
+				kl[LastProbeID] += "\n"
 
 			if R[4] != "":
 				PrintLine( "  ASN %s - %s" % ( R[3], R[4] ) )
+				kl[LastProbeID] += "  ASN %s - %s" % ( R[3], R[4] ) + "\n"
 			else:
 				PrintLine( "  ASN %s" % R[3] )
+				kl[LastProbeID] += "  ASN %s" % R[3] + "\n"
 
 		LastASN = R[3]
 
 	PrintNoNewLine( "    %s" % R[1] )					# hop n.
+	kl[LastProbeID] += "    %s" % R[1]
 	PrintNoNewLine( ("{: >%d}" % ColsMaxLen[2]).format( R[2] ) )		# IP
+	kl[LastProbeID] += ("{: >%d}" % ColsMaxLen[2]).format( R[2] )
+
 	if R[5] != "":
 		PrintNoNewLine( (" - {: >%d}" % ColsMaxLen[5]).format( R[5] ) )	# Prefix
+		kl[LastProbeID] +=  (" - {: >%d}" % ColsMaxLen[5]).format( R[5] )
+	if len(R) >=8 and R[7] != "":
+		PrintNoNewLine( (" - {: >%d} ms" % ColsMaxLen[7]).format( float(R[7]) ) )	# RTT
+		kl[LastProbeID] += (" - {: >%d} ms" % ColsMaxLen[7]).format( float(R[7]) )
+	if len(R) >=10 and R[9] != "":
+		PrintNoNewLine( (" - Distance {: >%d} km" % ColsMaxLen[9]).format( R[9] ) )	# Distance
+		kl[LastProbeID] += (" - Distance {: >%d} km" % ColsMaxLen[9]).format( R[9] )
+	if len(R) >=9 and R[8] != "":
+		PrintNoNewLine( (" - TTL {: >%d}" % ColsMaxLen[8]).format( R[8] ) )	# TTL
+		kl[LastProbeID] += (" - TTL {: >%d}" % ColsMaxLen[8]).format( R[8] )
 	if R[6] != "unknown" and R[6] != "":
 		PrintLine( ", %s" % R[6] )					# Hostname
+		kl[LastProbeID] += ", %s" % R[6] + "\n"
 	else:
 		PrintLine("")
+		kl[LastProbeID] += "\n"
+
+
+
+PrintLine ("Meine Ausgabe\n ----------------")
+pp.pprint(kl)
+PrintLine ("Meine Ausgabe\n ----------------")
 
 PrintLine("")
+
 
 if len(IncompleteProbes) > 0:
 	PrintLine("Valid probes: %s - %s incomplete (%s)" % ( ValidProbesCount, len(IncompleteProbes), ", ".join(map(str,IncompleteProbes)) ) )
@@ -556,6 +690,10 @@ PrintLine("")
 
 # ------------------------------------------------------------------
 
+PrintLine(kml.allcontainers)
+for b in kml.allcontainers:
+	b.description = kl[int(b.name)]
+	PrintLine(b.description)
 
 
 kml.save(KML_FILE)
