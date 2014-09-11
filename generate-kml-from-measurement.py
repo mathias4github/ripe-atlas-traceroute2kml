@@ -324,13 +324,19 @@ r.td('Starttime:')
 r.td(date.fromtimestamp(int(data[0]["timestamp"])).strftime('%Y-%m-%d %H:%M:%S'))
 r = t.tr
 r.td('Endtime')
-r.td(date.fromtimestamp(int(data[0]["endtime"])).strftime('%Y-%m-%d %H:%M:%S'))
+if "endtime" in data[0]: 
+	r.td(date.fromtimestamp(int(data[0]["endtime"])).strftime('%Y-%m-%d %H:%M:%S'))
+else:
+	r.td("NA")
 r = t.tr
 r.td('IP Version')
 r.td(str(data[0]["af"]))
 r = t.tr
 r.td('Paris ID')
-r.td(str(data[0]["paris_id"]))
+if "paris_id" in data[0]: 
+	r.td(str(data[0]["paris_id"]))
+else:
+	r.td("NA")
 r = t.tr
 r.td('Protocol')
 r.td(str(data[0]["proto"]))
@@ -366,7 +372,6 @@ for result in data:
 	TracerouteCompleted = False
 	Valid = False
 
-	geo = reader.city(IPAddress)
 
 	#l = []
 	#l.append(IPAddress)
@@ -384,6 +389,7 @@ for result in data:
 
 	fol = doc.newfolder(name=ProbeID)
 	#fol.description()
+	firstline = True
 
 	pnt = fol.newpoint(name=ProbeID, 
 			 description=''.join(["IP Address: ", IPAddress ,"\nPrefix: ",IPAddressDetails["Prefix"], "\nASN: ", IPAddressDetails["ASN"], "\nHostname: ", IPAddressDetails["HostName"], "\nHolder: ",IPAddressDetails["Holder"]]), 
@@ -483,9 +489,10 @@ for result in data:
 						else:
 							PrintLine("IP: " + IPAddress + " Long: " + str(geo.location.longitude) + " Lat: " + str(geo.location.latitude) )
 					
+
 						if(last_latitude == 0 and last_longitude == 0):
-							last_latitude = geo.location.latitude
-							last_longitude = geo.location.longitude
+							last_latitude = float(probe_details[int(ProbeID)]["lat"])
+							last_longitude = float (probe_details[int(ProbeID)]["lon"])
 							last_rtt = median(listrtt)
 							Cols.append( 0 )
 
