@@ -30,6 +30,7 @@ Installation
     import ipaddr http://code.google.com/p/ipaddr-py/ - pip install ipaddr
     import simplekml https://code.google.com/p/simplekml/ - pip install simplekml
     import geoip2.database https://github.com/maxmind/GeoIP2-python - with easy_install or pip install geoip2
+    import html - with pip install html 
 
 Download latest GeoLite2 Free Database: http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
 
