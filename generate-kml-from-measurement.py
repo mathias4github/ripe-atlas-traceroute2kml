@@ -200,7 +200,7 @@ def median(mylist):
     return sorts[length / 2]
 
 def color_selctor(latency,distance):
-	expected_latency = distance / 200
+	expected_latency = (distance / 200) * 2 # Fuer RTT
 
 	if latency <= expected_latency * 1:  # wahrscheinlich fehler da zu schnell
 		colorhex = "FF0000"
